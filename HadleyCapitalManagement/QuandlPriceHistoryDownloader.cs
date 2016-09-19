@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HadleyCapitalManagement.DataAccess;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -14,7 +15,7 @@ namespace HadleyCapitalManagement
             const string apikey = "MXrRoowvUAjrUCFEp63J";
             const string url = "https://www.quandl.com/api/v1/datasets/CME/{0}.csv?api_key=MXrRoowvUAjrUCFEp63J";
             
-            var dataAccess = new DataAccess();
+            var dataAccess = new SqlServerDataAccess();
 
             var commodityList = dataAccess.GetCommodityList();
 

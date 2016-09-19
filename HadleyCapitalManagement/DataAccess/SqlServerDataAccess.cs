@@ -6,13 +6,13 @@ using System.Threading.Tasks;
 using Dapper;
 using System.Data.SqlClient;
 
-namespace HadleyCapitalManagement
+namespace HadleyCapitalManagement.DataAccess
 {
-    public class DataAccess
+    public class SqlServerDataAccess : IDataAccess
     {
         private string _ConnectionString;
 
-        public DataAccess()
+        public SqlServerDataAccess()
         {
             _ConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["LocalConnection"].ConnectionString;
         }
