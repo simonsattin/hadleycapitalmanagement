@@ -10,6 +10,10 @@ namespace HadleyCapitalManagement
     {
         static void Main(string[] args)
         {
+            var downloader = new QuandlPriceHistoryDownloader();
+            downloader.Run();
+
+            Console.ReadKey();
         }
     }
 }
