@@ -16,7 +16,7 @@ namespace HadleyCapitalManagement
         public decimal Low { get; set; }
         public decimal Close { get; set; }
         public decimal OpenInterest { get; set; }
-
+        
         public Contract Contract { get; set; }
     }
 }

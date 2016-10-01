@@ -60,6 +60,10 @@
     <Compile Include="DataAccess\SqliteDataAccess.cs" />
     <Compile Include="DataAccess\SqlServerDataAccess.cs" />
     <Compile Include="DataAccess\IDataAccess.cs" />
+    <Compile Include="Norgate\NorgateContract.cs" />
+    <Compile Include="Norgate\NorgateContractPrice.cs" />
+    <Compile Include="Norgate\NorgateDataProcessor.cs" />
+    <Compile Include="Norgate\NorgateCommodity.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QuandlPriceHistoryDownloader.cs" />
