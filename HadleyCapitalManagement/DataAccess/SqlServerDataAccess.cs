@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Dapper;
 using System.Data.SqlClient;
+using HadleyCapitalManagement.Quandl;
 
 namespace HadleyCapitalManagement.DataAccess
 {
@@ -17,31 +18,31 @@ namespace HadleyCapitalManagement.DataAccess
             _ConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["LocalConnection"].ConnectionString;
         }
 
-        public List<Commodity> GetCommodityList()
+        public List<QuandlCommodity> GetCommodityList()
         {
             using (var connection = new SqlConnection(_ConnectionString))
             {
-                return connection.Query<Commodity>("SELECT * FROM dbo.Commodity").ToList();
+                return connection.Query<QuandlCommodity>("SELECT * FROM dbo.Commodity").ToList();
             }
         }
 
-        public List<Contract> GetContractList(int commodityId)
+        public List<QuandlContract> GetContractList(int commodityId)
         {
             using (var connection = new SqlConnection(_ConnectionString))
             {
-                return connection.Query<Contract>("SELECT * FROM dbo.Contract WHERE CommodityId = @CommodityId", new { CommodityId = commodityId }).ToList();
+                return connection.Query<QuandlContract>("SELECT * FROM dbo.Contract WHERE CommodityId = @CommodityId", new { CommodityId = commodityId }).ToList();
             }
         }
 
-        public List<ContractPrice> GetContractPriceList(int contractId)
+        public List<QuandlContractPrice> GetContractPriceList(int contractId)
         {
             using (var connection = new SqlConnection(_ConnectionString))
             {
-                return connection.Query<ContractPrice>("SELECT * FROM dbo.ContractPrice WHERE ContractId = @ContractId", new { ContractId = contractId }).ToList();
+                return connection.Query<QuandlContractPrice>("SELECT * FROM dbo.ContractPrice WHERE ContractId = @ContractId", new { ContractId = contractId }).ToList();
             }
         }
 
-        public void AddContract(Contract contract)
+        public void AddContract(QuandlContract contract)
         {
             using (var connection = new SqlConnection(_ConnectionString))
             {

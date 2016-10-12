@@ -10,8 +10,7 @@ namespace HadleyCapitalManagement.Norgate
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public string MonthCodes { get; set; }
-        public string FirstContract { get; set; }
         public string FolderName { get; set; }
+        public bool Active { get; set; }
     }
 }

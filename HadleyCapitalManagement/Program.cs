@@ -1,4 +1,5 @@
 ﻿using HadleyCapitalManagement.Norgate;
+using HadleyCapitalManagement.Quandl;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,8 +12,11 @@ namespace HadleyCapitalManagement
     {
         static void Main(string[] args)
         {
-            var processor = new NorgateDataProcessor();
-            processor.Run();
+            //var processor = new NorgateDataProcessor();
+            //processor.Run();
+
+            var quandlDownloader = new QuandlPriceHistoryDownloader();
+            quandlDownloader.Run();
 
             Console.ReadKey();
         }

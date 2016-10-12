@@ -1,5 +1,7 @@
-﻿using System;
+﻿using HadleyCapitalManagement.Quandl;
+using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
@@ -10,11 +12,13 @@ namespace HadleyCapitalManagement.DataAccess
 {
     public class SqliteDataAccess : IDataAccess
     {
-        private SQLiteConnection _Connection;
+        private readonly SQLiteConnection _Connection;
+        private readonly string _DatabaseLocation;
 
         public SqliteDataAccess()
         {
-            var dbFilePath = "./Database.sqlite";
+            _DatabaseLocation = ConfigurationManager.AppSettings["SqliteLocation"];
+            var dbFilePath = _DatabaseLocation;
             if (!File.Exists(dbFilePath))
             {
                 SQLiteConnection.CreateFile(dbFilePath);
@@ -23,22 +27,22 @@ namespace HadleyCapitalManagement.DataAccess
             _Connection.Open();
         }
 
-        public void AddContract(Contract contract)
+        public void AddContract(QuandlContract contract)
         {
             throw new NotImplementedException();
         }
 
-        public List<Commodity> GetCommodityList()
+        public List<QuandlCommodity> GetCommodityList()
         {
             throw new NotImplementedException();
         }
 
-        public List<Contract> GetContractList(int commodityId)
+        public List<QuandlContract> GetContractList(int commodityId)
         {
             throw new NotImplementedException();
         }
 
-        public List<ContractPrice> GetContractPriceList(int contractId)
+        public List<QuandlContractPrice> GetContractPriceList(int contractId)
         {
             throw new NotImplementedException();
         }

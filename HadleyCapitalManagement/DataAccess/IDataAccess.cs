@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HadleyCapitalManagement.Quandl;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,9 +9,9 @@ namespace HadleyCapitalManagement.DataAccess
 {
     public interface IDataAccess
     {
-        List<Commodity> GetCommodityList();
-        List<Contract> GetContractList(int commodityId);
-        List<ContractPrice> GetContractPriceList(int contractId);
-        void AddContract(Contract contract);
+        List<QuandlCommodity> GetCommodityList();
+        List<QuandlContract> GetContractList(int commodityId);
+        List<QuandlContractPrice> GetContractPriceList(int contractId);
+        void AddContract(QuandlContract contract);
     }
 }
