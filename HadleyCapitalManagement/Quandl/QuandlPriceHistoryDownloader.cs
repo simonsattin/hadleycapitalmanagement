@@ -33,7 +33,7 @@ namespace HadleyCapitalManagement.Quandl
 
         public void Run()
         {
-            PurgeData();
+            //PurgeData();
 
             var commodityList = GetAllCommodities();
 
@@ -41,17 +41,33 @@ namespace HadleyCapitalManagement.Quandl
             {
                 Console.WriteLine(commodity.Name);
 
-                FindAndExtractCommodityContractsAndPrices(commodity);
+                // FindAndExtractCommodityContractsAndPrices(commodity);
 
-                GenerateAdjustedCurve(commodity);
+                //GenerateAdjustedCurve(commodity);
+                //GenerateContractRoll(commodity);
+
+                GenerateBackAdjustedContinuousContract(commodity);
             }
 
             Console.WriteLine("Completed");
         }   
 
-        private void GenerateContracts(QuandlCommodity commodity)
+        private void DownloadAllSCFAssets()
         {
+            var downloadClient = new WebClient();
+            string downloadFolder = @"D:\TradingData\SCF\{0}.csv";
+            string urlseed = "https://www.quandl.com/api/v3/datasets/{0}.csv?api_key=MXrRoowvUAjrUCFEp63J";
+            var codes = GetSCFCodes();
 
+            foreach (var code in codes)
+            {
+                var url = string.Format(urlseed, code);
+                var downloadLocation = string.Format(downloadFolder, code.Replace("SCF/", string.Empty));
+
+                Console.WriteLine(code);
+
+                downloadClient.DownloadFile(url, downloadLocation);
+            }
         }
         
         private void FindAndExtractCommodityContractsAndPrices(QuandlCommodity commodity)
@@ -144,6 +160,59 @@ namespace HadleyCapitalManagement.Quandl
             }
         }
 
+        private void GenerateBackAdjustedContinuousContract(QuandlCommodity commodity)
+        {
+            var referenceContracts = GetReferenceContracts().ToList();
+            var allPrices = GetCommodityPrices(commodity.Id);
+            var adjustmentFactor = 0m;
+            var adjustedClose = 0m;
+            var adjustedOpen = 0m;
+            var adjustedHigh = 0m;
+            var adjustedLow = 0m;
+            var curveDateCount = referenceContracts.Count;
+            QuandlContractPrice referenceContractPriceData, previousContractPriceData;
+            var contracts = GetAllContracts(commodity.Id);
+
+            _Connection.Execute("DELETE FROM QuandlAdjustedPrice;");
+            _Connection.Execute("BEGIN;");
+
+            for (int i = 1; i < curveDateCount; i++)
+            {
+                var curveDate = referenceContracts[i];
+                var yesterdayCurveDate = referenceContracts[i - 1];
+                var contract = contracts.FirstOrDefault(c => c.Id == curveDate.ContractId);
+
+                Console.WriteLine(string.Format("{0} {1}%", curveDate.Date.ToString("dd/MM/yyyy"), Math.Round(((decimal)i / (decimal)curveDateCount) * 100, 2)));
+
+                referenceContractPriceData = allPrices.FirstOrDefault(p => p.Date == curveDate.Date && p.ContractId == curveDate.ContractId);                
+
+                if (curveDate.ContractId != yesterdayCurveDate.ContractId)
+                {
+                    // SWITCH CONTRACT, ADJUST FACTOR
+                    previousContractPriceData = allPrices.FirstOrDefault(p => p.Date == curveDate.Date && p.ContractId == yesterdayCurveDate.ContractId);
+
+                    // RECALCULATE THE ADJUSTMENT FACTOR - THE GAP BETWEEN LATEST MOST LIQUID CONTRACT, AND THE PREVIOUS ONE
+                    adjustmentFactor = adjustmentFactor + (previousContractPriceData.Close - referenceContractPriceData.Close);
+
+                    adjustedClose = referenceContractPriceData.Close + adjustmentFactor;
+                    adjustedOpen = referenceContractPriceData.Open + adjustmentFactor;
+                    adjustedHigh = referenceContractPriceData.High + adjustmentFactor;
+                    adjustedLow = referenceContractPriceData.Low + adjustmentFactor;
+                }
+                else
+                {                                        
+                    adjustedClose = referenceContractPriceData.Close + adjustmentFactor;
+                    adjustedOpen = referenceContractPriceData.Open + adjustmentFactor;
+                    adjustedHigh = referenceContractPriceData.High + adjustmentFactor;
+                    adjustedLow = referenceContractPriceData.Low + adjustmentFactor;
+                }
+
+                AddAdjustedPrice(curveDate.Date, contract.Name, contract.Id, adjustmentFactor, adjustedOpen, adjustedHigh, adjustedLow, adjustedClose, referenceContractPriceData.OpenInterest);
+            }
+
+            _Connection.Execute("END;");
+        }
+
         private int FindColumnHeaderIndex(string[] columnHeaders, string search)
         {
             for (int i = 0; i < columnHeaders.Length; i++)
@@ -154,14 +223,85 @@ namespace HadleyCapitalManagement.Quandl
             return -1;
         }
 
+        private void GenerateContractRoll(QuandlCommodity commodity)
+        {
+            var curveDates = GetCurveDatesAsc(commodity.Id).ToList();
+            var currentDate = curveDates.First();
+            var referenceContract = GetCurrentContract(currentDate, commodity.Id);
+            var contracts = GetAllContracts(commodity.Id);
+            var allPrices = GetCommodityPrices(commodity.Id);
+            List<int> previousReferenceContractIds = new List<int>();
+            int consecutiveDays = 0;
+
+            var output = new StringBuilder();
+
+            _Connection.Execute("BEGIN;");
+
+            var curveDateCount = curveDates.Count;
+            for (int i = 0; i < curveDateCount; i++)
+            {
+                var curveDate = curveDates[i];
+
+                Console.WriteLine(string.Format("{0} {1}%", curveDate.ToString("dd/MM/yyyy"), Math.Round(((decimal)i / (decimal)curveDateCount) * 100, 2)));
+
+                var todaysPrices = allPrices.Where(p => p.Date == curveDate && !previousReferenceContractIds.Any(x => x == p.ContractId));
+
+                QuandlContractPrice liquidContractPriceData = todaysPrices.FirstOrDefault(c => c.OpenInterest == todaysPrices.Max(p => p.OpenInterest));
+
+                // MAKE SURE THAT TODAY'S PRICES CONTAIN THE CURRENT CONTRACT
+                if (!todaysPrices.Any(p => p.ContractId == referenceContract.Id))
+                {
+                    // WE ARE MISSING THE CURRENT CONTRACT PRICE DATA FOR THIS CURVE DATE
+                    // AUTO SWITCH TO NEXT LIQUID CONTRACT
+                    consecutiveDays = 0;
+
+                    referenceContract = contracts.FirstOrDefault(c => c.Id == liquidContractPriceData.ContractId);
+
+                    output.AppendLine(string.Format("{0},{1},{2},{3}", curveDate.ToString("dd/MM/yyyy"), referenceContract.Name, consecutiveDays, "AUTO"));
+
+                    continue;
+                }
+                else
+                {
+                    if (liquidContractPriceData.ContractId == referenceContract.Id)
+                    {
+                        // SAME CONTRACT
+                        consecutiveDays = 0;
+
+                        output.AppendLine(string.Format("{0},{1},{2},{3}", curveDate.ToString("dd/MM/yyyy"), referenceContract.Name, string.Empty, string.Empty));
+                    }
+                    else
+                    {
+                        output.AppendLine(string.Format("{0},{1},{2},{3}", curveDate.ToString("dd/MM/yyyy"), referenceContract.Name, consecutiveDays, string.Empty));
+
+                        // CHANGE OF REFERENCE CONTRACT
+                        consecutiveDays++;
+
+                        if (consecutiveDays == 2)
+                        {
+                            // FIND THE CONTRACT THAT MATCHES MOST LIQUID ONE
+                            referenceContract = contracts.FirstOrDefault(c => c.Id == liquidContractPriceData.ContractId);
+                        }
+
+                        //previousReferenceContractIds.Add(referenceContract.Id);
+                    }
+                }
+
+                AddDateReferenceContract(curveDate, referenceContract.Id);
+            }
+
+            _Connection.Execute("END;");
+
+            File.WriteAllText("output.csv", output.ToString());
+        }
+
         private void GenerateAdjustedCurve(QuandlCommodity commodity)
         {
             Console.WriteLine("Generating Adjusted Curve for " + commodity.Name + " ");
 
             var curveDates = GetCurveDates(commodity.Id).ToList();
             var currentDate = curveDates.First();
-            var referenceContract = GetCurrentContract(currentDate, commodity.Id);
-            //int previousReferenceContractId = 0;
+            var referenceContract = GetCurrentContract(currentDate, commodity.Id);            
             QuandlContractPrice referenceContractPriceData = null;
             var contracts = GetAllContracts(commodity.Id);
             var allPrices = GetCommodityPrices(commodity.Id);
@@ -234,6 +374,21 @@ namespace HadleyCapitalManagement.Quandl
             Console.WriteLine("DONE");
         }
 
+        private IEnumerable<string> GetSCFCodes()
+        {
+            return _Connection.Query<string>("SELECT Code FROM QuandlSCFAsset;");
+        }
+
+        private IEnumerable<QuandlDateReferenceContract> GetReferenceContracts()
+        {
+            return _Connection.Query<QuandlDateReferenceContract>("SELECT Date, ContractId FROM QuandlDateReferenceContract order by Date DESC;");
+        }
+
+        private void AddDateReferenceContract(DateTime date, int contractId)
+        {
+            _Connection.Execute("INSERT INTO QuandlDateReferenceContract (Date, ContractId) VALUES (@Date, @ContractId)", new { Date = date, ContractId = contractId });
+        }
+
         private List<QuandlContract> GetAllContracts(int commodityId)
         {
             return _Connection.Query<QuandlContract>("SELECT Id, Name, MonthCode, Year, QuandlCommodityId FROM QuandlContract WHERE QuandlCommodityId = @CommodityId", new { CommodityId = commodityId }).ToList();
@@ -269,6 +424,18 @@ where p.ContractId = c.Id
 and c.QuandlCommodityId = @CommodityId
 and p.OpenInterest > 0
 order by p.Date desc
+", new { CommodityId = commodityId });
+        }
+
+        private IEnumerable<DateTime> GetCurveDatesAsc(int commodityId)
+        {
+            return _Connection.Query<DateTime>(@"
+select distinct p.Date
+from QuandlContractPrice p, QuandlContract c
+where p.ContractId = c.Id
+and c.QuandlCommodityId = @CommodityId
+and p.OpenInterest > 0
+order by p.Date asc;
 ", new { CommodityId = commodityId });
         }
 

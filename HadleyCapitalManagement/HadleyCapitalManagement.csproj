@@ -71,6 +71,7 @@
     <Compile Include="Norgate\NorgateCommodity.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Quandl\QuandlDateReferenceContract.cs" />
     <Compile Include="Quandl\QuandlPriceHistoryDownloader.cs" />
   </ItemGroup>
   <ItemGroup>
